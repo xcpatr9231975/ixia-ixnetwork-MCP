@@ -11,7 +11,7 @@ import time
 from typing import Any
 
 from . import rest
-from .errors import GUARD_BLOCKED, VALIDATION, IxToolError
+from .errors import GUARD_BLOCKED, VALIDATION, IxToolError, map_exception
 from .refs import ConfigIndex
 
 POLL_S = 2.0
@@ -98,17 +98,37 @@ def assign_ports(ixn: Any, mappings: list[dict[str, str]], *, create_missing: bo
                           hint="list_ports(include_chassis=true) shows chassis ports and their owners.")
 
     hrefs, takeover = [], []
-    for vref, href, loc, taken in plan:
-        if href is None:
-            from .compiler import href_of
-            href = href_of(ixn._connection._create(f"{root}/vport", {"name": vref}))
-        ixn._connection._update(href, {"location": loc})
-        hrefs.append(href)
-        if taken:
-            takeover.append(href)
-    if takeover:
-        ixn._connection._execute(f"{root}/vport/operations/connectports", {"arg1": takeover, "arg2": True})
-    states = _wait_ports(ixn, hrefs, wait_link_up_s)
+    applied: list[dict[str, str]] = []
+    created_vports: list[dict[str, str]] = []
+    attempted: dict[str, str] | None = None
+    stage = "assign"
+    try:
+        for vref, href, loc, taken in plan:
+            attempted = {"vport": vref, "location": loc}
+            if href is None:
+                from .compiler import href_of
+                href = href_of(ixn._connection._create(f"{root}/vport", {"name": vref}))
+                created_vports.append({"vport": vref, "href": href})
+            ixn._connection._update(href, {"location": loc})
+            hrefs.append(href)
+            applied.append({"vport": vref, "location": loc})
+            if taken:
+                takeover.append(href)
+        attempted = None
+        if takeover:
+            stage = "ownership_takeover"
+            ixn._connection._execute(f"{root}/vport/operations/connectports", {"arg1": takeover, "arg2": True})
+        stage = "wait_for_link"
+        states = _wait_ports(ixn, hrefs, wait_link_up_s)
+    except Exception as exc:
+        mapped = map_exception(exc)
+        raise IxToolError(
+            mapped.code,
+            f"port assignment failed during {stage}; changes may be partial: {mapped.message}",
+            mapped.hint or "Inspect the live vport mappings and chassis ownership; no automatic rollback was attempted.",
+            partial={"applied": applied, "attempted": attempted, "created_vports": created_vports,
+                     "takeover_requested": takeover},
+        ) from exc
     rows, warnings = [], []
     for href in hrefs:
         s = states[href]
