@@ -60,14 +60,11 @@ def assign_ports(ixn: Any, mappings: list[dict[str, str]], *, create_missing: bo
     vports = rest.get(ixn, "vport?includes=name,location,connectionState")
     chassis, locs = _chassis_ports(ixn)
     registered = {loc.get("hostname") for loc in locs}
-    for m in mappings:  # make sure every chassis is known before looking up its ports
-        host = _hostname(str(m.get("location", "")))
-        if host and host not in registered:
-            ixn._connection._create(f"{root}/locations", {"hostname": host})
-            registered.add(host)
-            time.sleep(POLL_S)
-    if registered != {loc.get("hostname") for loc in locs}:
-        chassis, locs = _chassis_ports(ixn)
+    unknown_hosts = sorted({_hostname(str(m.get("location", ""))) for m in mappings} - registered - {""})
+    if unknown_hosts:
+        raise IxToolError(VALIDATION, f"unknown chassis host(s): {unknown_hosts}",
+                          hint="Register the chassis in IxNetwork first, then choose a port shown by "
+                               "list_ports(include_chassis=true).")
     mine = _my_owner(vports, chassis)
 
     errors, plan = [], []
