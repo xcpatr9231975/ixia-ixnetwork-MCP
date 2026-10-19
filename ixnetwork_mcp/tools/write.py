@@ -63,17 +63,19 @@ def register(app: FastMCP, manager: SessionManager) -> None:
 
     @app.tool(annotations=DESTRUCTIVE)
     async def import_config_fragment(fragment: list[dict[str, Any]], dry_run: bool = True,
-                                     target: str | None = None) -> dict[str, Any]:
+                                     confirm: bool = False, target: str | None = None) -> dict[str, Any]:
         """Advanced escape hatch: apply raw ImportConfig entries (the xpath dialect shown by
         export_config, e.g. {"xpath": "/topology[1]/deviceGroup[1]", "multiplier": 4} or
         {"xpath": "/multivalue[@source = '<xpath> <attr>']/singleValue", "value": "x"}).
         dry_run (default) classifies each entry as create/modify without applying. Applying needs
-        the target's guards.allow_raw_import. Prefer set_attributes/add_node: raw imports are not
-        validated beforehand and cannot be rolled back."""
+        confirm=true and the target's guards.allow_raw_import. Prefer set_attributes/add_node: raw
+        imports are not validated beforehand and cannot be rolled back."""
         ts = manager.resolve(target)
-        if not dry_run and not ts.target.guards.allow_raw_import:
-            raise IxToolError(GUARD_BLOCKED, f"raw imports are disabled for target '{ts.target.name}'",
-                              hint="Set guards.allow_raw_import=true in the inventory, or use set_attributes/add_node.")
+        if not dry_run:
+            require_confirm(confirm, "applying raw ImportConfig entries")
+            if not ts.target.guards.allow_raw_import:
+                raise IxToolError(GUARD_BLOCKED, f"raw imports are disabled for target '{ts.target.name}'",
+                                  hint="Set guards.allow_raw_import=true in the inventory, or use set_attributes/add_node.")
         result = await manager.call(target, lambda ixn: compiler.import_fragment(ixn, fragment, dry_run),
                                     write=not dry_run)
         return ok(ts.target.name, result)
