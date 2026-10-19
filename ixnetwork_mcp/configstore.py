@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from . import rest
-from .errors import NOT_FOUND, VALIDATION, IxToolError
+from .errors import IXN_ERROR, NOT_FOUND, VALIDATION, IxToolError
 
 SAVE_SCOPE = [
     ["/locations/descendant-or-self::*"],
@@ -200,7 +200,13 @@ def load(ixn: Any, saved: Path, method: str, port_map: dict[str, str] | None, wa
         ixn.NewConfig()
         outcome = classify_import_result(ixn.ResourceManager.ImportConfig(json.dumps(doc), True))
         if outcome.errors:
-            warnings += [f"import: {e}" for e in outcome.errors[:20]]
+            raise IxToolError(
+                IXN_ERROR,
+                f"JSON config import reported {len(outcome.errors)} error(s); the replacement may be partial",
+                hint="The previous configuration was cleared before import. Inspect the live session and restore "
+                     "a saved configuration if needed.",
+                errors=outcome.errors[:20],
+            )
     else:
         raise IxToolError(VALIDATION, "method must be 'ixncfg' or 'json'")
     items = rest.get(ixn, "traffic/trafficItem?includes=name")
