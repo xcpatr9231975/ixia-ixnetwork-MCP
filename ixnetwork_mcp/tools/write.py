@@ -86,10 +86,10 @@ def register(app: FastMCP, manager: SessionManager) -> None:
         """Run an IxNetwork operation on an object (`ref`; omit for root operations), e.g.
         'getAllLearnedInfo' on a BGP peer or 'sendArp' on an ipv4 stack. describe_node_type(...,
         include=['operations']) lists the operations and their arguments; `args` supplies extra
-        arguments as {"arg2": ..., ...} (arg1 = the object itself is filled in). Operations whose
-        name starts with get/fetch/check run directly; anything else changes state or sends
-        packets and needs confirm=true after asking the user. Config/port-level operations
-        (newConfig, loadConfig, assignPorts ...) are only available through their dedicated tools."""
+        arguments as {"arg2": ..., ...} (arg1 = the object itself is filled in). Only explicitly
+        allowlisted read operations run directly; all others require confirm=true. Config/port-level
+        operations (newConfig, loadConfig, assignPorts ...) are only available through their
+        dedicated tools."""
         schema, warnings = await schema_for(manager, target)
         ts = manager.resolve(target)
         compiler.check_denied(operation)

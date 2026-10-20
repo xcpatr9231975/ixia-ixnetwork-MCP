@@ -40,7 +40,7 @@ DENY_OPERATIONS = {
     "rebuildchassistopology": None, "refreshchassistopology": None, "rediscoverappliances": None,
     "collectlogs": None, "copyfile": None,
 }
-READ_PREFIXES = ("get", "fetch", "check")
+READ_OPERATIONS = frozenset({"getalllearnedinfo"})
 
 
 # ---------------------------------------------------------------------------- import
@@ -423,7 +423,7 @@ def resolve_operation(schema: SchemaIndex, type_path: str, operation: str) -> tu
 
 
 def is_read_operation(name: str) -> bool:
-    return name.lower().startswith(READ_PREFIXES)
+    return name.lower() in READ_OPERATIONS
 
 
 def run_operation(ixn: Any, schema: SchemaIndex, ref: str | None, operation: str,
