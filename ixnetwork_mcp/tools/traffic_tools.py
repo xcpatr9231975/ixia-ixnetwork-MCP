@@ -150,9 +150,10 @@ def register(app: FastMCP, manager: SessionManager) -> None:
                         target: str | None = None) -> dict[str, Any]:
         """Read a statistics view, e.g. 'Port Statistics', 'Traffic Item Statistics',
         'Flow Statistics', 'Protocols Summary' (without `view`: list the available views).
-        `filters` = {column: regex} keeps matching rows (e.g. {"Traffic Item": "^v4"}); `columns`
-        selects columns; numbers are returned as numbers. Pages through the whole view and puts the
-        GUI's view back on the page it was on."""
+        `filters` = {column: regex} keeps matching rows (e.g. {"Traffic Item": "^v4"}); patterns
+        are limited to 256 characters, each match to 50 ms, and total filtering to 30 seconds.
+        `columns` selects columns; numbers are returned as numbers. Pages through the whole view
+        and puts the GUI's view back on the page it was on."""
         ts = manager.resolve(target)
         if view is None:
             return ok(ts.target.name, {"views": await manager.call(target, stats.list_views)})

@@ -8,12 +8,17 @@ Never uses restpy's StatViewAssistant (it eval()s filter strings).
 from __future__ import annotations
 
 import difflib
-import re
 import time
 from typing import Any
 
+import regex
+
 from .. import rest
 from ..errors import NOT_FOUND, VALIDATION, IxToolError
+
+MAX_FILTER_PATTERN_LENGTH = 256
+FILTER_BUDGET_S = 30.0
+REGEX_MATCH_TIMEOUT_S = 0.05
 
 
 def list_views(ixn: Any) -> list[dict[str, Any]]:
@@ -55,18 +60,21 @@ def read_view(ixn: Any, caption: str, filters: dict[str, str] | None, columns: l
         unknown = [c for c in columns if c not in cols]
         if unknown:
             raise IxToolError(VALIDATION, f"unknown columns {unknown}", candidates=cols)
-    compiled = {}
+    compiled: dict[int, tuple[str, regex.Pattern]] = {}
     for col, rx in (filters or {}).items():
         if col not in cols:
             raise IxToolError(VALIDATION, f"filter column '{col}' is not in the view", candidates=cols)
+        if len(rx) > MAX_FILTER_PATTERN_LENGTH:
+            raise IxToolError(VALIDATION, f"filter for '{col}' exceeds {MAX_FILTER_PATTERN_LENGTH} characters")
         try:
-            compiled[cols.index(col)] = re.compile(rx, re.IGNORECASE)
-        except re.error as exc:
+            compiled[cols.index(col)] = (col, regex.compile(rx, regex.IGNORECASE))
+        except regex.error as exc:
             raise IxToolError(VALIDATION, f"bad regex for '{col}': {exc}") from None
     original = page.get("currentPage") or 1
     total_pages = page.get("totalPages") or 1
     rows: list[list[Any]] = []
     current = original
+    filter_deadline = time.monotonic() + FILTER_BUDGET_S if compiled else None
     try:
         for p in range(1, total_pages + 1):
             if current != p:
@@ -75,7 +83,19 @@ def read_view(ixn: Any, caption: str, filters: dict[str, str] | None, columns: l
             raw = rest.get(ixn, page_rel)
             for row in raw.get("pageValues") or []:
                 values = list(row[0]) if row and isinstance(row[0], list) else list(row)
-                if all(rx.search(str(values[i])) for i, rx in compiled.items()):
+                matches = True
+                for i, (col, rx) in compiled.items():
+                    if time.monotonic() >= filter_deadline:
+                        raise IxToolError(VALIDATION, f"statistics filters exceeded the {FILTER_BUDGET_S:.0f}s time budget")
+                    try:
+                        matched = rx.search(str(values[i]), timeout=REGEX_MATCH_TIMEOUT_S)
+                    except TimeoutError:
+                        raise IxToolError(VALIDATION, f"regex filter for '{col}' exceeded "
+                                          f"{REGEX_MATCH_TIMEOUT_S * 1000:.0f}ms") from None
+                    if not matched:
+                        matches = False
+                        break
+                if matches:
                     rows.append(values)
     finally:
         if current != original:  # leave the GUI's view on the page it was on

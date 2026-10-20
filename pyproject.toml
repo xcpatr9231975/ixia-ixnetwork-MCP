@@ -8,6 +8,7 @@ dependencies = [
     "mcp[cli]>=1.27,<2.0",
     "ixnetwork-restpy==1.9.0",
     "pydantic>=2.0",
+    "regex>=2024.11.6",
 ]
 
 [project.scripts]
