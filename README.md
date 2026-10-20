@@ -51,6 +51,8 @@ options.
 
 - String values may reference environment variables, e.g. `"password": "${IXN_PASSWORD}"`.
   The Windows GUI API server needs no credentials by default.
+- TLS certificates are verified by default. For a self-signed IxNetwork certificate, set
+  `verify_cert` to `false` only when the connection is on a trusted network path.
 - `guards` control what the agent may do on that target (`read_only`, clearing/loading the
   configuration, starting traffic, taking over chassis ports owned by other sessions, raw imports).
 - Saved configurations go to `~/.ixnetwork-mcp/configs/<target>/` (override with `config_dir`).

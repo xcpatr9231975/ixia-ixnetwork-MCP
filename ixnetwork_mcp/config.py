@@ -54,7 +54,7 @@ class Target(BaseModel):
     username: str | None = None
     password: str | None = None
     api_key: str | None = None
-    verify_cert: bool = False
+    verify_cert: bool = True
     timeouts: Timeouts = Field(default_factory=Timeouts)
     guards: Guards = Field(default_factory=Guards)
     config_dir: Path | None = None

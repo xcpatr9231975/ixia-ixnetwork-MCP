@@ -85,7 +85,7 @@ def install_restpy_guards() -> None:
         return
     # generated restpy docstrings trigger SyntaxWarnings when first compiled (py3.12+)
     warnings.filterwarnings("ignore", category=SyntaxWarning, message=r".*invalid escape sequence")
-    # IxNetwork GUI API servers use self-signed certificates; verify_cert=false is the norm
+    # IxNetwork GUI API servers may use self-signed certificates; disabling verification is an explicit opt-out
     warnings.filterwarnings("ignore", message=r"Unverified HTTPS request")
     rp_log = logging.getLogger("ixnetwork_restpy.connection")
     if not rp_log.handlers:
@@ -124,6 +124,8 @@ class TargetSession:
         from ixnetwork_restpy import TestPlatform
 
         t = self.target
+        if not t.verify_cert:
+            log.warning("TLS certificate verification is disabled for target '%s'", t.name)
         tp = TestPlatform(t.ip, rest_port=t.rest_port, verify_cert=t.verify_cert, trace="warning")
         if t.api_key:
             tp.ApiKey = t.api_key

@@ -6,7 +6,7 @@
     "username": null,
     "password": "${IXN_PASSWORD}",
     "api_key": null,
-    "verify_cert": false,
+    "verify_cert": true,
     "timeouts": {"connect_s": 10, "read_s": 120, "tool_deadline_s": 600},
     "guards": {
       "read_only": false,
